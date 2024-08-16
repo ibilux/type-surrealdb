@@ -1,16 +1,22 @@
 {
   "name": "type-surrealdb",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typescript support and class utils for SurrealDB",
   "homepage": "https://github.com/ibilux/type-surrealdb",
   "keywords": [
     "surrealdb",
     "surrealdb.js",
+    "surql",
+    "surrealql",
     "node",
     "typescript",
     "class",
     "schema",
-    "decorators"
+    "decorators",
+    "orm",
+    "database",
+    "generator",
+    "schemagenerator"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
