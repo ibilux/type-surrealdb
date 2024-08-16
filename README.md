@@ -2,7 +2,7 @@
 
 ![NPM Version](https://img.shields.io/npm/v/type-surrealdb) ![License](https://img.shields.io/github/license/ibilux/type-surrealdb) ![Issues](https://img.shields.io/github/issues/ibilux/type-surrealdb)
 
-![ ](https://github.com/ibilux/type-surrealdb/raw/master/coverage/badge-statements.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/master/coverage/badge-branches.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/master/coverage/badge-functions.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/master/coverage/badge-lines.svg)
+![ ](https://github.com/ibilux/type-surrealdb/raw/main/coverage/badge-statements.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/main/coverage/badge-branches.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/main/coverage/badge-functions.svg) ![ ](https://github.com/ibilux/type-surrealdb/raw/main/coverage/badge-lines.svg)
 
 TypeSurrealDB lets you create schemas for SurrealDB using TypeScript classes and decorators!
 
