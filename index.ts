@@ -222,7 +222,7 @@ export function Table(config: string | string[] | TableConfig): ClassDecorator {
   };
 }
 
-export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[]) {
+export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[], comments = false) {
   const schemaParts: string[] = [];
   //
   function addFieldDefinition(
@@ -314,8 +314,15 @@ export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[])
         tableGeneric = table.generic;
       }
 
+      if (comments) {
+        schemaParts.push('-- ------------------------------');
+        schemaParts.push(`-- TABLE: ${tableName}`);
+        schemaParts.push('-- ------------------------------\n');
+      }
+
       // Begin table definition
       schemaParts.push(`DEFINE TABLE ${tableName} ${schemaMode};`);
+      if (comments) schemaParts.push('');
 
       // Define fields & indexes
       for (const [fieldName, fieldConfig] of Object.entries(properties)) {
