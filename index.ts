@@ -50,6 +50,7 @@ interface FieldSchemaProperty {
   indexed?: boolean;
   unique?: boolean;
   primary?: boolean;
+  optional?: boolean;
 }
 
 interface PrimaryFieldConfig extends FieldSchemaProperty {
@@ -232,15 +233,22 @@ export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[],
     fieldConfig: FieldSchemaProperty,
   ) {
     const fieldDefinition = [`DEFINE FIELD ${fieldName} ON ${tableName}`];
+    let fieldtype: string;
     if (fieldConfig.primary) {
-      fieldDefinition.push(`TYPE record<${tableName}>`);
+      fieldtype = `record<${tableName}>`;
     } else if (fieldConfig.type === 'object' && 'properties' in fieldConfig) {
-      fieldDefinition.push(`TYPE object`);
+      fieldtype = `object`;
     } else if ('typed' in fieldConfig && fieldConfig.typed) {
       const fieldtyped = fieldConfig.typed === '$$generic' ? tableGeneric : fieldConfig.typed;
-      fieldDefinition.push(`TYPE ${fieldConfig.type}<${fieldtyped}>`);
+      fieldtype = `${fieldConfig.type}<${fieldtyped}>`;
     } else {
-      const fieldtype = fieldConfig.type === '$$generic' ? tableGeneric : fieldConfig.type;
+      fieldtype =
+        fieldConfig.type === '$$generic' ? (tableGeneric ?? 'any') : (fieldConfig.type ?? 'any');
+    }
+
+    if (fieldConfig.optional) {
+      fieldDefinition.push(`TYPE option<${fieldtype}>`);
+    } else {
       fieldDefinition.push(`TYPE ${fieldtype}`);
     }
 
