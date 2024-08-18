@@ -21,9 +21,8 @@ type BasicType =
   | 'point'
   | 'string'
   | 'uuid';
-type ObjectType = 'object';
-type TypedType = 'geometry' | 'option' | 'set' | 'array' | 'record';
-type FieldType = BasicType | ObjectType | TypedType;
+type TypedType = 'geometry' | 'object' | 'option' | 'set' | 'array' | 'record';
+type FieldType = BasicType | TypedType;
 type GeometryDataTypes =
   | 'feature'
   | 'point'
@@ -33,17 +32,13 @@ type GeometryDataTypes =
   | 'multiline'
   | 'multipolygon'
   | 'collection';
-type OptionalDataTypes = 'number' | undefined;
-type SetDataTypes = BasicType | undefined;
-type ArrayDataTypes = BasicType | string | undefined;
-type RecordDataTypes = string | undefined;
 
 /**
  * FieldSchemaProperty
  * Represents a property within a SurrealDB schema.
  */
 interface FieldSchemaProperty {
-  type?: BasicType | ObjectType | TypedType;
+  type?: BasicType | TypedType;
   default?: string;
   value?: string;
   assertion?: string;
@@ -57,19 +52,13 @@ interface PrimaryFieldConfig extends FieldSchemaProperty {
   primary: boolean;
 }
 
-interface ObjectFieldConfig extends FieldSchemaProperty {
-  type: ObjectType;
-  object: typeof TableSchema;
-  properties?: PropertiesTypes;
-}
-
 interface BasicFieldConfig extends FieldSchemaProperty {
   type: BasicType;
 }
 
 interface TypedFieldConfig extends FieldSchemaProperty {
   type: TypedType;
-  typed: GeometryDataTypes | OptionalDataTypes | SetDataTypes | ArrayDataTypes | RecordDataTypes;
+  typed?: string | BasicType | typeof TableSchema | GeometryDataTypes;
 }
 
 interface GeometryFieldConfig extends TypedFieldConfig {
@@ -77,37 +66,13 @@ interface GeometryFieldConfig extends TypedFieldConfig {
   typed: GeometryDataTypes;
 }
 
-interface OptionalFieldConfig extends TypedFieldConfig {
-  type: 'option';
-  typed: OptionalDataTypes;
+interface ObjectFieldConfig extends TypedFieldConfig {
+  type: 'option' | 'set' | 'array' | 'record' | 'object';
+  typed?: string | BasicType | typeof TableSchema;
+  properties?: PropertiesTypes;
 }
 
-interface SetFieldConfig extends TypedFieldConfig {
-  type: 'set';
-  typed: SetDataTypes;
-  length: number | undefined;
-}
-
-interface ArrayFieldConfig extends TypedFieldConfig {
-  type: 'array';
-  typed: ArrayDataTypes;
-  length: number | undefined;
-}
-
-interface RecordFieldConfig extends TypedFieldConfig {
-  type: 'record';
-  typed: RecordDataTypes;
-}
-
-type FieldConfig =
-  | PrimaryFieldConfig
-  | BasicFieldConfig
-  | ObjectFieldConfig
-  | GeometryFieldConfig
-  | OptionalFieldConfig
-  | SetFieldConfig
-  | ArrayFieldConfig
-  | RecordFieldConfig;
+type FieldConfig = PrimaryFieldConfig | BasicFieldConfig | ObjectFieldConfig | GeometryFieldConfig;
 
 // properties types
 interface PropertiesTypes {
@@ -162,16 +127,6 @@ function initializeSchema(constructor: any): void {
       ...constructor.SurrealdbSchema.properties,
     };
   }
-
-  // Process nested objects
-  for (const [_key, value] of Object.entries(
-    constructor.SurrealdbSchema.properties as FieldSchemaProperty,
-  )) {
-    if (value.type === 'object' && value.object) {
-      // Ensure that nested schemas are initialized
-      initializeSchema(value.object);
-    }
-  }
 }
 
 export function Field(kind: FieldType): PropertyDecorator;
@@ -190,8 +145,18 @@ export function Field(args: FieldType | FieldConfig): PropertyDecorator {
       field = { ...args };
     }
 
-    if (field.type === 'object' && 'object' in field) {
-      field.properties = field.object.SurrealdbSchema.properties || {};
+    if (
+      (field.type === 'option' ||
+        field.type === 'set' ||
+        field.type === 'array' ||
+        field.type === 'record' ||
+        field.type === 'object') &&
+      'typed' in field &&
+      field.typed
+    ) {
+      if (typeof field.typed !== 'string') {
+        field.properties = field.typed.SurrealdbSchema.properties || {};
+      }
     }
 
     initializeSchema(target.constructor);
@@ -236,11 +201,28 @@ export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[],
     let fieldtype: string;
     if (fieldConfig.primary) {
       fieldtype = `record<${tableName}>`;
-    } else if (fieldConfig.type === 'object' && 'properties' in fieldConfig) {
-      fieldtype = `object`;
-    } else if ('typed' in fieldConfig && fieldConfig.typed) {
-      const fieldtyped = fieldConfig.typed === '$$generic' ? tableGeneric : fieldConfig.typed;
-      fieldtype = `${fieldConfig.type}<${fieldtyped}>`;
+    } else if (
+      fieldConfig.type === 'option' ||
+      fieldConfig.type === 'set' ||
+      fieldConfig.type === 'array' ||
+      fieldConfig.type === 'record' ||
+      fieldConfig.type === 'object'
+    ) {
+      if ('typed' in fieldConfig && fieldConfig.typed) {
+        if (typeof fieldConfig.typed === 'string') {
+          const fieldtyped =
+            fieldConfig.typed === '$$generic' ? (tableGeneric ?? 'any') : fieldConfig.typed;
+          fieldtype = `${fieldConfig.type}<${fieldtyped}>`;
+        } else {
+          if (fieldConfig.type === 'object') {
+            fieldtype = fieldConfig.type;
+          } else {
+            fieldtype = `${fieldConfig.type}<object>`;
+          }
+        }
+      } else {
+        fieldtype = fieldConfig.type;
+      }
     } else {
       fieldtype =
         fieldConfig.type === '$$generic' ? (tableGeneric ?? 'any') : (fieldConfig.type ?? 'any');
@@ -265,16 +247,23 @@ export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[],
     schemaParts.push(`${fieldDefinition.join(' ')};`);
 
     // Recursively define nested fields
-    if (fieldConfig.type === 'object' && 'properties' in fieldConfig) {
+    if (
+      (fieldConfig.type === 'option' ||
+        fieldConfig.type === 'set' ||
+        fieldConfig.type === 'array' ||
+        fieldConfig.type === 'record' ||
+        fieldConfig.type === 'object') &&
+      'properties' in fieldConfig
+    ) {
       for (const [nestedFieldName, nestedFieldConfig] of Object.entries(
         fieldConfig.properties as PropertiesTypes,
       )) {
-        addFieldDefinition(
-          tableName,
-          tableGeneric,
-          `${fieldName}.${nestedFieldName}`,
-          nestedFieldConfig,
-        );
+        const parentFieldName =
+          fieldConfig.type === 'set' || fieldConfig.type === 'array'
+            ? `${fieldName}.*.${nestedFieldName}`
+            : `${fieldName}.${nestedFieldName}`;
+        addFieldDefinition(tableName, tableGeneric, `${parentFieldName}`, nestedFieldConfig);
+        addIndexDefinition(tableName, `${parentFieldName}`, nestedFieldConfig);
       }
     }
   }
@@ -286,7 +275,7 @@ export function generateSurqlSchema<T extends typeof TableSchema>(entities: T[],
   ) {
     if (fieldConfig.primary || fieldConfig.indexed || fieldConfig.unique) {
       const indexDefinition = [
-        `DEFINE INDEX idx_${tableName}_${fieldName} ON ${tableName} FIELDS ${fieldName}`,
+        `DEFINE INDEX idx_${tableName}_${fieldName.replace(/[\*\.]/g, '_')} ON ${tableName} FIELDS ${fieldName}`,
       ];
 
       if (fieldConfig.primary || fieldConfig.unique) indexDefinition.push('UNIQUE');

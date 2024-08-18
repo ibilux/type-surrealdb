@@ -104,7 +104,7 @@ DEFINE INDEX idx_name ON company FIELDS name UNIQUE;
     it('should generate valid SurrealDB schema for a table with nested fields', () => {
       @Table('employee')
       class Employee extends TableSchema {
-        @Field({ type: 'object', object: Address })
+        @Field({ type: 'object', typed: Address })
         address!: Address;
 
         static SurrealdbSchema: SchemaObject;

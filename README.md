@@ -117,7 +117,7 @@ class Person {
   @Field('string')
   name!: string;
 
-  @Field({ type: 'object', object: Address })
+  @Field({ type: 'object', typed: Address })
   address!: Address;
 
   static SurrealdbSchema: SchemaObject;
